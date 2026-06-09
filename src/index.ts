@@ -24,11 +24,11 @@ client.on(Events.MessageCreate, async (message: Message) => {
     if (message.author.bot) return;
 
     if (message.channelId === process.env.PLAN_CHANNEL_ID) {
-        const dateMatch = message.content.match(/^#\s*(\d{1,2}\/\d{1,2})/m);
+        const dateMatch = message.content.match(/^#?\s*(\d{1,2}[\/\.]\d{1,2})/m);
         const plans = message.content
             .split('\n')
-            .filter(line => line.trim().startsWith('*'))
-            .map(line => line.replace(/^\*\s*/, '').trim())
+            .filter(line => line.trim().startsWith('•') || line.trim().startsWith('*') || line.trim().startsWith('-'))
+            .map(line => line.replace(/^[•*-]\s*/, '').trim())
             .filter(Boolean);
 
         if (!dateMatch || plans.length === 0) return;

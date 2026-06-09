@@ -56,7 +56,10 @@ async function sendCertReport() {
 export function startScheduler() {
     cron.schedule('0 8 * * *', async () => {
         const now = new Date();
-        const today = `${now.getMonth() + 1}/${now.getDate()}`;
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        const today = `${month}/${day}`;
+        const todayPadded = `0${month}`.slice(-2) + '/' + `0${day}`.slice(-2);
 
         const guild = await client.guilds.fetch(process.env.GUILD_ID!);
         const members = await guild.members.fetch();
@@ -67,7 +70,7 @@ export function startScheduler() {
         members.forEach(member => {
             if (member.user.bot) return;
             const entry = planMap.get(member.id);
-            if (entry && entry.date === today) {
+            if (entry && (entry.date === today || entry.date === todayPadded)) {
                 written.push(`✅ ${member.displayName}: ${entry.plans.join(', ')}`);
             } else {
                 notWritten.push(`❌ ${member.displayName}`);
@@ -87,7 +90,7 @@ export function startScheduler() {
         await sendToAdmins(msg);
 
         for (const [id, entry] of planMap.entries()) {
-            if (entry.date === today) planMap.delete(id);
+            if (entry.date === today || entry.date === todayPadded) planMap.delete(id);
         }
     }, { timezone: 'Asia/Seoul' });
 

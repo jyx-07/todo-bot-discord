@@ -93,6 +93,7 @@ export function startScheduler() {
         for (const [id, entry] of planMap.entries()) {
             if (entry.date === today || entry.date === todayPadded) planMap.delete(id);
         }
+        saveStore();
     }, { timezone: 'Asia/Seoul' });
 
     cron.schedule('30 22 * * 0,6', sendCertReport, { timezone: 'Asia/Seoul' });

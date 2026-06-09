@@ -19,6 +19,9 @@ async function sendToAdminsWithFiles(content: string, files: string[]) {
 
 export function startScheduler() {
     cron.schedule('0 8 * * *', async () => {
+        const now = new Date();
+        const today = `${now.getMonth() + 1}/${now.getDate()}`;
+
         const guild = await client.guilds.fetch(process.env.GUILD_ID!);
         const members = await guild.members.fetch();
 
@@ -27,8 +30,9 @@ export function startScheduler() {
 
         members.forEach(member => {
             if (member.user.bot) return;
-            if (planMap.has(member.id)) {
-                written.push(`✅ ${member.displayName}: ${planMap.get(member.id)!.join(', ')}`);
+            const entry = planMap.get(member.id);
+            if (entry && entry.date === today) {
+                written.push(`✅ ${member.displayName}: ${entry.plans.join(', ')}`);
             } else {
                 notWritten.push(`❌ ${member.displayName}`);
             }
@@ -45,7 +49,10 @@ export function startScheduler() {
         ].join('\n');
 
         await sendToAdmins(msg);
-        planMap.clear();
+
+        for (const [id, entry] of planMap.entries()) {
+            if (entry.date === today) planMap.delete(id);
+        }
     }, { timezone: 'Asia/Seoul' });
 
     cron.schedule('0 22 * * *', async () => {

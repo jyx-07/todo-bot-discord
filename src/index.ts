@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 import { startScheduler } from './scheduler';
 dotenv.config();
 
-export const planMap = new Map<string, string[]>();
+export const planMap = new Map<string, { date: string; plans: string[] }>();
 export const certMap = new Map<string, string>();
 
 export const client = new Client({
@@ -24,15 +24,17 @@ client.on(Events.MessageCreate, async (message: Message) => {
     if (message.author.bot) return;
 
     if (message.channelId === process.env.PLAN_CHANNEL_ID) {
+        const dateMatch = message.content.match(/^#\s*(\d{1,2}\/\d{1,2})/m);
         const plans = message.content
             .split('\n')
             .filter(line => line.trim().startsWith('*'))
             .map(line => line.replace(/^\*\s*/, '').trim())
             .filter(Boolean);
 
-        if (plans.length === 0) return;
+        if (!dateMatch || plans.length === 0) return;
 
-        planMap.set(message.author.id, plans);
+        const date = dateMatch[1];
+        planMap.set(message.author.id, { date, plans });
         await message.react('✅');
     }
 

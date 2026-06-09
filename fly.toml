@@ -1,0 +1,9 @@
+app = 'my-bot-radiant-waterfall-5394'
+primary_region = 'nrt'
+
+[processes]
+app = "node dist/index.js"
+
+[[vm]]
+memory = '256mb'
+cpus = 1

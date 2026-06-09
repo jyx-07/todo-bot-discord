@@ -1,10 +1,10 @@
 import { Client, GatewayIntentBits, Events, Message } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { startScheduler } from './scheduler';
+import { planMap, certMap, loadStore, saveStore } from './storage';
 dotenv.config();
 
-export const planMap = new Map<string, { date: string; plans: string[] }>();
-export const certMap = new Map<string, string>();
+export { planMap, certMap, saveStore };
 
 export const client = new Client({
     intents: [

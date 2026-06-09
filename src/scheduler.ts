@@ -1,11 +1,26 @@
 import cron from 'node-cron';
 import { client, planMap, certMap } from './index';
 
+async function sendToAdmins(content: string) {
+    const adminIds = process.env.ADMIN_IDS!.split(',').map(id => id.trim());
+    for (const id of adminIds) {
+        const admin = await client.users.fetch(id);
+        await admin.send(content);
+    }
+}
+
+async function sendToAdminsWithFiles(content: string, files: string[]) {
+    const adminIds = process.env.ADMIN_IDS!.split(',').map(id => id.trim());
+    for (const id of adminIds) {
+        const admin = await client.users.fetch(id);
+        await admin.send({ content, files });
+    }
+}
+
 export function startScheduler() {
     cron.schedule('0 8 * * *', async () => {
         const guild = await client.guilds.fetch(process.env.GUILD_ID!);
         const members = await guild.members.fetch();
-        const admin = await client.users.fetch(process.env.ADMIN_ID!);
 
         const written: string[] = [];
         const notWritten: string[] = [];
@@ -29,14 +44,13 @@ export function startScheduler() {
             ...notWritten,
         ].join('\n');
 
-        await admin.send(msg);
+        await sendToAdmins(msg);
         planMap.clear();
     }, { timezone: 'Asia/Seoul' });
 
     cron.schedule('0 22 * * *', async () => {
         const guild = await client.guilds.fetch(process.env.GUILD_ID!);
         const members = await guild.members.fetch();
-        const admin = await client.users.fetch(process.env.ADMIN_ID!);
 
         const certified: string[] = [];
         const notCertified: string[] = [];
@@ -60,11 +74,11 @@ export function startScheduler() {
             ...notCertified,
         ].join('\n');
 
-        await admin.send(msg);
+        await sendToAdmins(msg);
 
         for (const [userId, url] of certMap.entries()) {
             const member = await guild.members.fetch(userId);
-            await admin.send({ content: `📎 ${member.displayName}`, files: [url] });
+            await sendToAdminsWithFiles(`📎 ${member.displayName}`, [url]);
         }
 
         certMap.clear();

@@ -23,9 +23,15 @@ client.once(Events.ClientReady, (c) => {
 client.on(Events.MessageCreate, async (message: Message) => {
     if (message.author.bot) return;
 
-    // 계획 채널
     if (message.channelId === process.env.PLAN_CHANNEL_ID) {
-        const plans = message.content.split(',').map(p => p.trim()).filter(Boolean);
+        const plans = message.content
+            .split('\n')
+            .filter(line => line.trim().startsWith('*'))
+            .map(line => line.replace(/^\*\s*/, '').trim())
+            .filter(Boolean);
+
+        if (plans.length === 0) return;
+
         planMap.set(message.author.id, plans);
         await message.react('✅');
 
@@ -47,27 +53,26 @@ client.on(Events.MessageCreate, async (message: Message) => {
         await admin.send({ embeds: [embed] });
     }
 
-    // 인증 채널
     if (message.channelId === process.env.CERT_CHANNEL_ID) {
-        const image = message.attachments.first();
-        if (image) {
-            certMap.set(message.author.id, image.url);
-            await message.react('✅');
+        const images = message.attachments.map(a => a.url);
+        if (images.length === 0) return;
 
-            const admin = await client.users.fetch(process.env.ADMIN_ID!);
-            const embed = new EmbedBuilder()
-                .setColor(0x57F287)
-                .setTitle('📸 인증 완료')
-                .setAuthor({
-                    name: message.author.username,
-                    iconURL: message.author.displayAvatarURL(),
-                })
-                .setImage(image.url)
-                .setTimestamp()
-                .setFooter({ text: '투두봇' });
+        certMap.set(message.author.id, images[0]); // 대표 사진만 저장
+        await message.react('✅');
 
-            await admin.send({ embeds: [embed] });
-        }
+        const admin = await client.users.fetch(process.env.ADMIN_ID!);
+        const embed = new EmbedBuilder()
+            .setColor(0x57F287)
+            .setTitle('📸 인증 완료')
+            .setAuthor({
+                name: message.author.username,
+                iconURL: message.author.displayAvatarURL(),
+            })
+            .setImage(images[0])
+            .setTimestamp()
+            .setFooter({ text: '투두봇' });
+
+        await admin.send({ embeds: [embed], files: images.slice(1) }); // 나머지 사진은 파일로
     }
 });
 

@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { client, planMap, certMap } from './index';
+import { client, planMap, certMap, saveStore } from './index';
 
 async function sendToAdmins(content: string) {
     const adminIds = process.env.ADMIN_IDS!.split(',').map(id => id.trim());
@@ -51,6 +51,7 @@ async function sendCertReport() {
     }
 
     certMap.clear();
+    saveStore();
 }
 
 export function startScheduler() {

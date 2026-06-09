@@ -17,6 +17,7 @@ export const client = new Client({
 
 client.once(Events.ClientReady, (c) => {
     console.log(`✅ ${c.user.tag} 로그인 완료`);
+    loadStore();
     startScheduler();
 });
 
@@ -35,6 +36,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
 
         const date = dateMatch[1];
         planMap.set(message.author.id, { date, plans });
+        saveStore();
         await message.react('✅');
     }
 
@@ -43,6 +45,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
         if (images.length === 0) return;
 
         certMap.set(message.author.id, images[0]);
+        saveStore();
         await message.react('✅');
     }
 });

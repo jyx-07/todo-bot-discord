@@ -54,8 +54,7 @@ async function sendCertReport() {
     saveStore();
 }
 
-export function startScheduler() {
-    cron.schedule('0 8 * * *', async () => {
+async function sendPlanReport() {
         const now = new Date();
         const month = now.getMonth() + 1;
         const day = now.getDate();
@@ -94,7 +93,12 @@ export function startScheduler() {
             if (entry.date === today || entry.date === todayPadded) planMap.delete(id);
         }
         saveStore();
-    }, { timezone: 'Asia/Seoul' });
+}
+
+export function startScheduler() {
+    // 평일은 8시, 주말은 12시에 계획 현황 전송
+    cron.schedule('0 8 * * 1-5', sendPlanReport, { timezone: 'Asia/Seoul' });
+    cron.schedule('0 12 * * 0,6', sendPlanReport, { timezone: 'Asia/Seoul' });
 
     cron.schedule('30 22 * * 0,6', sendCertReport, { timezone: 'Asia/Seoul' });
     cron.schedule('0 23 * * 1,2,3,4,5', sendCertReport, { timezone: 'Asia/Seoul' });

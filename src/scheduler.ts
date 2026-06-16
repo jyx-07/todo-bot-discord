@@ -55,51 +55,49 @@ async function sendCertReport() {
 }
 
 async function sendPlanReport() {
-        const now = new Date();
-        const month = now.getMonth() + 1;
-        const day = now.getDate();
-        const today = `${month}/${day}`;
-        const todayPadded = `0${month}`.slice(-2) + '/' + `0${day}`.slice(-2);
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const today = `${month}/${day}`;
+    const todayPadded = `0${month}`.slice(-2) + '/' + `0${day}`.slice(-2);
 
-        const guild = await client.guilds.fetch(process.env.GUILD_ID!);
-        const members = await guild.members.fetch();
+    const guild = await client.guilds.fetch(process.env.GUILD_ID!);
+    const members = await guild.members.fetch();
 
-        const written: string[] = [];
-        const notWritten: string[] = [];
+    const written: string[] = [];
+    const notWritten: string[] = [];
 
-        members.forEach(member => {
-            if (member.user.bot) return;
-            const entry = planMap.get(member.id);
-            if (entry && (entry.date === today || entry.date === todayPadded)) {
-                written.push(`✅ ${member.displayName}: ${entry.plans.join(', ')}`);
-            } else {
-                notWritten.push(`❌ ${member.displayName}`);
-            }
-        });
-
-        const msg = [
-            '📋 **오늘 계획 현황**',
-            '─────────────',
-            ...written,
-            '',
-            '📭 **미작성**',
-            '─────────────',
-            ...notWritten,
-        ].join('\n');
-
-        await sendToAdmins(msg);
-
-        for (const [id, entry] of planMap.entries()) {
-            if (entry.date === today || entry.date === todayPadded) planMap.delete(id);
+    members.forEach(member => {
+        if (member.user.bot) return;
+        const entry = planMap.get(member.id);
+        if (entry && (entry.date === today || entry.date === todayPadded)) {
+            written.push(`✅ ${member.displayName}: ${entry.plans.join(', ')}`);
+        } else {
+            notWritten.push(`❌ ${member.displayName}`);
         }
-        saveStore();
+    });
+
+    const msg = [
+        '📋 **오늘 계획 현황**',
+        '─────────────',
+        ...written,
+        '',
+        '📭 **미작성**',
+        '─────────────',
+        ...notWritten,
+    ].join('\n');
+
+    await sendToAdmins(msg);
+
+    for (const [id, entry] of planMap.entries()) {
+        if (entry.date === today || entry.date === todayPadded) planMap.delete(id);
+    }
+    saveStore();
 }
 
 export function startScheduler() {
-    // 평일은 8시, 주말은 12시에 계획 현황 전송
-    cron.schedule('0 8 * * 1-5', sendPlanReport, { timezone: 'Asia/Seoul' });
-    cron.schedule('0 12 * * 0,6', sendPlanReport, { timezone: 'Asia/Seoul' });
-
-    cron.schedule('30 22 * * 0,6', sendCertReport, { timezone: 'Asia/Seoul' });
-    cron.schedule('0 23 * * 1,2,3,4,5', sendCertReport, { timezone: 'Asia/Seoul' });
+    cron.schedule('0 23 * * *', sendPlanReport);       // UTC 23:00 = KST 08:00
+    // 테스트용
+    cron.schedule('30 13 * * 0,6', sendCertReport);    // UTC 13:30 = KST 22:30 (주말)
+    cron.schedule('0 14 * * 1,2,3,4,5', sendCertReport); // UTC 14:00 = KST 23:00 (평일)
 }

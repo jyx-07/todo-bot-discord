@@ -17,6 +17,15 @@ async function sendToAdminsWithFiles(content: string, files: string[]) {
     }
 }
 
+function getKSTDate() {
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    return {
+        today: `${kst.getUTCMonth() + 1}/${kst.getUTCDate()}`,
+        todayPadded: `0${kst.getUTCMonth() + 1}`.slice(-2) + '/' + `0${kst.getUTCDate()}`.slice(-2),
+    };
+}
+
 async function sendCertReport() {
     const guild = await client.guilds.fetch(process.env.GUILD_ID!);
     const members = await guild.members.fetch();
@@ -45,9 +54,19 @@ async function sendCertReport() {
 
     await sendToAdmins(msg);
 
-    for (const [userId, url] of certMap.entries()) {
+    for (const [userId, urls] of certMap.entries()) {
         const member = await guild.members.fetch(userId);
-        await sendToAdminsWithFiles(`📎 ${member.displayName}`, [url]);
+        const imageFiles = urls.filter(u => !u.startsWith('http') || u.match(/\.(jpg|jpeg|png|gif|webp)/i));
+        const linkFiles = urls.filter(u => !imageFiles.includes(u));
+
+        let content = `📎 ${member.displayName}`;
+        if (linkFiles.length > 0) content += `\n${linkFiles.join('\n')}`;
+
+        if (imageFiles.length > 0) {
+            await sendToAdminsWithFiles(content, imageFiles);
+        } else {
+            await sendToAdmins(content);
+        }
     }
 
     certMap.clear();
@@ -55,11 +74,7 @@ async function sendCertReport() {
 }
 
 async function sendPlanReport() {
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    const today = `${month}/${day}`;
-    const todayPadded = `0${month}`.slice(-2) + '/' + `0${day}`.slice(-2);
+    const { today, todayPadded } = getKSTDate();
 
     const guild = await client.guilds.fetch(process.env.GUILD_ID!);
     const members = await guild.members.fetch();
@@ -96,8 +111,7 @@ async function sendPlanReport() {
 }
 
 export function startScheduler() {
-    cron.schedule('0 23 * * *', sendPlanReport);       // UTC 23:00 = KST 08:00
-    // 테스트용
-    cron.schedule('30 13 * * 0,6', sendCertReport);    // UTC 13:30 = KST 22:30 (주말)
-    cron.schedule('0 14 * * 1,2,3,4,5', sendCertReport); // UTC 14:00 = KST 23:00 (평일)
+    cron.schedule('0 23 * * *', sendPlanReport);
+    cron.schedule('30 13 * * 0,6', sendCertReport);
+    cron.schedule('0 14 * * 1,2,3,4,5', sendCertReport);
 }

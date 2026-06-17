@@ -4,7 +4,7 @@ import * as path from 'path';
 const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
 const STORE_PATH = path.join(DATA_DIR, 'store.json');
 
-export type PlanEntry = { date: string; plans: string[] };
+export type PlanEntry = { date: string; plans: string[]; links?: string[] };
 
 interface StoreShape {
     plans: Record<string, PlanEntry>;

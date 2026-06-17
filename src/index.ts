@@ -45,10 +45,11 @@ client.on(Events.MessageCreate, async (message: Message) => {
     if (message.channelId === process.env.PLAN_CHANNEL_ID) {
         const date = parseDate(message.content);
         const plans = parsePlans(message.content);
+        const links = message.content.match(/https?:\/\/\S+/g) ?? [];
 
-        if (!date || plans.length === 0) return;
+        if (!date || (plans.length === 0 && links.length === 0)) return;
 
-        planMap.set(message.author.id, { date, plans });
+        planMap.set(message.author.id, { date, plans, links });
         saveStore();
         await message.react('✅');
     }

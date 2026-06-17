@@ -26,7 +26,19 @@ function getKSTDate() {
     };
 }
 
-async function sendCertReport() {
+type PendingCertReport = {
+    summary: string;
+    perUser: { content: string; files: string[] }[];
+};
+
+type PendingPlanReport = {
+    summary: string;
+};
+
+let pendingCertReport: PendingCertReport | null = null;
+let pendingPlanReport: PendingPlanReport | null = null;
+
+async function collectCertReport() {
     const guild = await client.guilds.fetch(process.env.GUILD_ID!);
     const members = await guild.members.fetch();
 
@@ -42,7 +54,7 @@ async function sendCertReport() {
         }
     });
 
-    const msg = [
+    const summary = [
         '📸 **오늘 인증 현황**',
         '─────────────',
         ...certified,
@@ -52,8 +64,7 @@ async function sendCertReport() {
         ...notCertified,
     ].join('\n');
 
-    await sendToAdmins(msg);
-
+    const perUser: { content: string; files: string[] }[] = [];
     for (const [userId, urls] of certMap.entries()) {
         const member = await guild.members.fetch(userId);
         const imageFiles = urls.filter(u => !u.startsWith('http') || u.match(/\.(jpg|jpeg|png|gif|webp)/i));
@@ -62,18 +73,33 @@ async function sendCertReport() {
         let content = `📎 ${member.displayName}`;
         if (linkFiles.length > 0) content += `\n${linkFiles.join('\n')}`;
 
-        if (imageFiles.length > 0) {
-            await sendToAdminsWithFiles(content, imageFiles);
+        perUser.push({ content, files: imageFiles });
+    }
+
+    certMap.clear();
+    saveStore();
+
+    pendingCertReport = { summary, perUser };
+}
+
+async function sendCertReport() {
+    if (!pendingCertReport) return;
+    const { summary, perUser } = pendingCertReport;
+
+    await sendToAdmins(summary);
+
+    for (const { content, files } of perUser) {
+        if (files.length > 0) {
+            await sendToAdminsWithFiles(content, files);
         } else {
             await sendToAdmins(content);
         }
     }
 
-    certMap.clear();
-    saveStore();
+    pendingCertReport = null;
 }
 
-async function sendPlanReport() {
+async function collectPlanReport() {
     const { today, todayPadded } = getKSTDate();
 
     const guild = await client.guilds.fetch(process.env.GUILD_ID!);
@@ -86,13 +112,14 @@ async function sendPlanReport() {
         if (member.user.bot) return;
         const entry = planMap.get(member.id);
         if (entry && (entry.date === today || entry.date === todayPadded)) {
-            written.push(`✅ ${member.displayName}: ${entry.plans.join(', ')}`);
+            const details = [entry.plans.join(', '), ...(entry.links ?? [])].filter(Boolean).join(' ');
+            written.push(`✅ ${member.displayName}: ${details}`);
         } else {
             notWritten.push(`❌ ${member.displayName}`);
         }
     });
 
-    const msg = [
+    const summary = [
         '📋 **오늘 계획 현황**',
         '─────────────',
         ...written,
@@ -102,16 +129,23 @@ async function sendPlanReport() {
         ...notWritten,
     ].join('\n');
 
-    await sendToAdmins(msg);
-
     for (const [id, entry] of planMap.entries()) {
         if (entry.date === today || entry.date === todayPadded) planMap.delete(id);
     }
     saveStore();
+
+    pendingPlanReport = { summary };
+}
+
+async function sendPlanReport() {
+    if (!pendingPlanReport) return;
+    await sendToAdmins(pendingPlanReport.summary);
+    pendingPlanReport = null;
 }
 
 export function startScheduler() {
-    cron.schedule('0 23 * * *', sendPlanReport);
-    cron.schedule('30 13 * * 0,6', sendCertReport);
-    cron.schedule('0 14 * * 1,2,3,4,5', sendCertReport);
+    cron.schedule('30 8 * * *', collectPlanReport);
+    cron.schedule('30 8 * * *', collectCertReport);
+    cron.schedule('0 9 * * *', sendPlanReport);
+    cron.schedule('0 9 * * *', sendCertReport);
 }

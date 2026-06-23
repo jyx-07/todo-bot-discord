@@ -144,8 +144,9 @@ async function sendPlanReport() {
 }
 
 export function startScheduler() {
-    cron.schedule('30 8 * * *', collectPlanReport);
-    cron.schedule('30 8 * * *', collectCertReport);
-    cron.schedule('0 9 * * *', sendPlanReport);
-    cron.schedule('0 9 * * *', sendCertReport);
+    const tz = { timezone: 'Asia/Seoul' };
+    cron.schedule('30 7 * * *', collectPlanReport, tz);
+    cron.schedule('30 7 * * *', collectCertReport, tz);
+    cron.schedule('0 8 * * *', sendPlanReport, tz);
+    cron.schedule('0 8 * * *', sendCertReport, tz);
 }

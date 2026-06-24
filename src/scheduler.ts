@@ -1,5 +1,11 @@
 import cron from 'node-cron';
 import { client, planMap, certMap, saveStore } from './index';
+import {
+    pendingPlanReport as storedPendingPlanReport,
+    pendingCertReport as storedPendingCertReport,
+    setPendingPlanReport,
+    setPendingCertReport,
+} from './storage';
 
 async function sendToAdmins(content: string) {
     const adminIds = process.env.ADMIN_IDS!.split(',').map(id => id.trim());
@@ -26,17 +32,18 @@ function getKSTDate() {
     };
 }
 
-type PendingCertReport = {
-    summary: string;
-    perUser: { content: string; files: string[] }[];
-};
-
-type PendingPlanReport = {
-    summary: string;
-};
-
-let pendingCertReport: PendingCertReport | null = null;
-let pendingPlanReport: PendingPlanReport | null = null;
+async function runTask(name: string, task: () => Promise<void>) {
+    try {
+        await task();
+    } catch (err) {
+        console.error(`❌ ${name} 실패:`, err);
+        try {
+            await sendToAdmins(`⚠️ **${name} 실패**\n${err instanceof Error ? err.message : String(err)}`);
+        } catch (notifyErr) {
+            console.error('❌ 관리자 알림 전송도 실패:', notifyErr);
+        }
+    }
+}
 
 async function collectCertReport() {
     const guild = await client.guilds.fetch(process.env.GUILD_ID!);
@@ -79,12 +86,15 @@ async function collectCertReport() {
     certMap.clear();
     saveStore();
 
-    pendingCertReport = { summary, perUser };
+    setPendingCertReport({ summary, perUser });
 }
 
 async function sendCertReport() {
-    if (!pendingCertReport) return;
-    const { summary, perUser } = pendingCertReport;
+    if (!storedPendingCertReport) {
+        await sendToAdmins('⚠️ 인증 리포트를 보내지 못했습니다: 수집된 리포트가 없습니다 (8:20 수집 단계 확인 필요)');
+        return;
+    }
+    const { summary, perUser } = storedPendingCertReport;
 
     await sendToAdmins(summary);
 
@@ -96,7 +106,7 @@ async function sendCertReport() {
         }
     }
 
-    pendingCertReport = null;
+    setPendingCertReport(null);
 }
 
 async function collectPlanReport() {
@@ -134,19 +144,22 @@ async function collectPlanReport() {
     }
     saveStore();
 
-    pendingPlanReport = { summary };
+    setPendingPlanReport({ summary });
 }
 
 async function sendPlanReport() {
-    if (!pendingPlanReport) return;
-    await sendToAdmins(pendingPlanReport.summary);
-    pendingPlanReport = null;
+    if (!storedPendingPlanReport) {
+        await sendToAdmins('⚠️ 계획 리포트를 보내지 못했습니다: 수집된 리포트가 없습니다 (8:20 수집 단계 확인 필요)');
+        return;
+    }
+    await sendToAdmins(storedPendingPlanReport.summary);
+    setPendingPlanReport(null);
 }
 
 export function startScheduler() {
     const tz = { timezone: 'Asia/Seoul' };
-    cron.schedule('20 8 * * *', collectPlanReport, tz);
-    cron.schedule('20 8 * * *', collectCertReport, tz);
-    cron.schedule('30 8 * * *', sendPlanReport, tz);
-    cron.schedule('30 8 * * *', sendCertReport, tz);
+    cron.schedule('20 8 * * *', () => runTask('계획 리포트 수집', collectPlanReport), tz);
+    cron.schedule('20 8 * * *', () => runTask('인증 리포트 수집', collectCertReport), tz);
+    cron.schedule('30 8 * * *', () => runTask('계획 리포트 전송', sendPlanReport), tz);
+    cron.schedule('30 8 * * *', () => runTask('인증 리포트 전송', sendCertReport), tz);
 }

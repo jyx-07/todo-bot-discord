@@ -57,7 +57,8 @@ export function loadStore() {
     planMap.clear();
     certMap.clear();
     for (const [id, entry] of Object.entries(store.plans)) planMap.set(id, entry);
-    for (const [id, urls] of Object.entries(store.certs)) certMap.set(id, urls);
+    for (const [id, urls] of Object.entries(store.certs))
+        certMap.set(id, Array.isArray(urls) ? urls : [urls as unknown as string]);
     pendingPlanReport = store.pendingPlanReport;
     pendingCertReport = store.pendingCertReport;
     console.log(`💾 복원 완료: 계획 ${planMap.size}건, 인증 ${certMap.size}건` +

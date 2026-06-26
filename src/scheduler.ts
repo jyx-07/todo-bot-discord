@@ -122,11 +122,8 @@ async function collectPlanReport() {
         if (member.user.bot) return;
         const entry = planMap.get(member.id);
         if (entry && (entry.date === today || entry.date === todayPadded)) {
-            const lines = [
-                ...entry.plans.map(p => `- ${p}`),
-                ...(entry.links ?? []).map(l => `- ${l}`),
-            ].join('\n');
-            written.push(`## ✅ ${member.displayName}\n${lines}`);
+            const details = [entry.plans.join(', '), ...(entry.links ?? [])].filter(Boolean).join(' ');
+            written.push(`✅ ${member.displayName}: ${details}`);
         } else {
             notWritten.push(`❌ ${member.displayName}`);
         }
@@ -135,7 +132,7 @@ async function collectPlanReport() {
     const summary = [
         '📋 **오늘 계획 현황**',
         '─────────────',
-        written.join('\n\n'),
+        ...written,
         '',
         '📭 **미작성**',
         '─────────────',

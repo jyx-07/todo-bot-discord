@@ -126,7 +126,7 @@ async function collectPlanReport() {
                 ...entry.plans.map(p => `- ${p}`),
                 ...(entry.links ?? []).map(l => `- ${l}`),
             ].join('\n');
-            written.push(`✅ **${member.displayName}**\n${lines}`);
+            written.push(`## ✅ ${member.displayName}\n${lines}`);
         } else {
             notWritten.push(`❌ ${member.displayName}`);
         }

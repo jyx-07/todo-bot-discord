@@ -160,8 +160,7 @@ async function sendPlanReport() {
 }
 
 export function startScheduler() {
-    const tz = { timezone: 'Asia/Seoul' };
-    cron.schedule('20 8 * * *', () => runTask('리포트 수집', collectReports), tz);
-    cron.schedule('30 8 * * *', () => runTask('계획 리포트 전송', sendPlanReport), tz);
-    cron.schedule('30 8 * * *', () => runTask('인증 리포트 전송', sendCertReport), tz);
+    cron.schedule('20 23 * * *', () => runTask('리포트 수집', collectReports));      // UTC 23:20 = KST 08:20
+    cron.schedule('30 23 * * *', () => runTask('계획 리포트 전송', sendPlanReport)); // UTC 23:30 = KST 08:30
+    cron.schedule('30 23 * * *', () => runTask('인증 리포트 전송', sendCertReport)); // UTC 23:30 = KST 08:30
 }

@@ -160,7 +160,13 @@ async function sendPlanReport() {
 }
 
 export function startScheduler() {
-    cron.schedule('20 23 * * *', () => runTask('리포트 수집', collectReports));      // UTC 23:20 = KST 08:20
-    cron.schedule('30 23 * * *', () => runTask('계획 리포트 전송', sendPlanReport)); // UTC 23:30 = KST 08:30
-    cron.schedule('30 23 * * *', () => runTask('인증 리포트 전송', sendCertReport)); // UTC 23:30 = KST 08:30
+    // 평일 (KST 08:20 수집, 08:30 전송)
+    cron.schedule('20 23 * * 0,1,2,3,4', () => runTask('리포트 수집', collectReports));
+    cron.schedule('30 23 * * 0,1,2,3,4', () => runTask('계획 리포트 전송', sendPlanReport));
+    cron.schedule('30 23 * * 0,1,2,3,4', () => runTask('인증 리포트 전송', sendCertReport));
+
+    // 주말 (KST 10:00 수집, 10:05 전송)
+    cron.schedule('0 1 * * 5,6', () => runTask('리포트 수집', collectReports));
+    cron.schedule('5 1 * * 5,6', () => runTask('계획 리포트 전송', sendPlanReport));
+    cron.schedule('5 1 * * 5,6', () => runTask('인증 리포트 전송', sendCertReport));
 }

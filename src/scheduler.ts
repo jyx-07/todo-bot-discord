@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+import { Guild, GuildMember, Collection } from 'discord.js';
 import { client, planMap, certMap, saveStore } from './index';
 import {
     pendingPlanReport as storedPendingPlanReport,
@@ -45,10 +46,7 @@ async function runTask(name: string, task: () => Promise<void>) {
     }
 }
 
-async function collectCertReport() {
-    const guild = await client.guilds.fetch(process.env.GUILD_ID!);
-    const members = await guild.members.fetch();
-
+async function collectCertReport(guild: Guild, members: Collection<string, GuildMember>) {
     const certified: string[] = [];
     const notCertified: string[] = [];
 
@@ -73,7 +71,7 @@ async function collectCertReport() {
 
     const perUser: { content: string; files: string[] }[] = [];
     for (const [userId, urls] of certMap.entries()) {
-        const member = await guild.members.fetch(userId);
+        const member = members.get(userId) ?? (await guild.members.fetch(userId));
         const imageFiles = urls.filter(u => !u.startsWith('http') || u.match(/\.(jpg|jpeg|png|gif|webp)/i));
         const linkFiles = urls.filter(u => !imageFiles.includes(u));
 
@@ -109,11 +107,8 @@ async function sendCertReport() {
     setPendingCertReport(null);
 }
 
-async function collectPlanReport() {
+async function collectPlanReport(guild: Guild, members: Collection<string, GuildMember>) {
     const { today, todayPadded } = getKSTDate();
-
-    const guild = await client.guilds.fetch(process.env.GUILD_ID!);
-    const members = await guild.members.fetch();
 
     const written: string[] = [];
     const notWritten: string[] = [];
@@ -147,6 +142,14 @@ async function collectPlanReport() {
     setPendingPlanReport({ summary });
 }
 
+async function collectReports() {
+    const guild = await client.guilds.fetch(process.env.GUILD_ID!);
+    const members = await guild.members.fetch();
+
+    await runTask('계획 리포트 수집', () => collectPlanReport(guild, members));
+    await runTask('인증 리포트 수집', () => collectCertReport(guild, members));
+}
+
 async function sendPlanReport() {
     if (!storedPendingPlanReport) {
         await sendToAdmins('⚠️ 계획 리포트를 보내지 못했습니다: 수집된 리포트가 없습니다 (8:20 수집 단계 확인 필요)');
@@ -158,8 +161,7 @@ async function sendPlanReport() {
 
 export function startScheduler() {
     const tz = { timezone: 'Asia/Seoul' };
-    cron.schedule('20 8 * * *', () => runTask('계획 리포트 수집', collectPlanReport), tz);
-    cron.schedule('20 8 * * *', () => runTask('인증 리포트 수집', collectCertReport), tz);
+    cron.schedule('20 8 * * *', () => runTask('리포트 수집', collectReports), tz);
     cron.schedule('30 8 * * *', () => runTask('계획 리포트 전송', sendPlanReport), tz);
     cron.schedule('30 8 * * *', () => runTask('인증 리포트 전송', sendCertReport), tz);
 }

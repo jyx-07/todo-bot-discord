@@ -15,11 +15,14 @@ export type PendingPlanReport = {
     summary: string;
 };
 
+export type PlanReminderSnapshot = Record<string, string>;
+
 interface StoreShape {
     plans: Record<string, PlanEntry>;
     certs: Record<string, string[]>;
     pendingPlanReport: PendingPlanReport | null;
     pendingCertReport: PendingCertReport | null;
+    pendingPlanReminder: PlanReminderSnapshot | null;
 }
 
 function readStore(): StoreShape {
@@ -31,9 +34,10 @@ function readStore(): StoreShape {
             certs: parsed.certs ?? {},
             pendingPlanReport: parsed.pendingPlanReport ?? null,
             pendingCertReport: parsed.pendingCertReport ?? null,
+            pendingPlanReminder: parsed.pendingPlanReminder ?? null,
         };
     } catch {
-        return { plans: {}, certs: {}, pendingPlanReport: null, pendingCertReport: null };
+        return { plans: {}, certs: {}, pendingPlanReport: null, pendingCertReport: null, pendingPlanReminder: null };
     }
 }
 
@@ -41,6 +45,7 @@ export const planMap = new Map<string, PlanEntry>();
 export const certMap = new Map<string, string[]>();
 export let pendingPlanReport: PendingPlanReport | null = null;
 export let pendingCertReport: PendingCertReport | null = null;
+export let pendingPlanReminder: PlanReminderSnapshot | null = null;
 
 export function setPendingPlanReport(report: PendingPlanReport | null) {
     pendingPlanReport = report;
@@ -49,6 +54,11 @@ export function setPendingPlanReport(report: PendingPlanReport | null) {
 
 export function setPendingCertReport(report: PendingCertReport | null) {
     pendingCertReport = report;
+    saveStore();
+}
+
+export function setPendingPlanReminder(snapshot: PlanReminderSnapshot | null) {
+    pendingPlanReminder = snapshot;
     saveStore();
 }
 
@@ -61,8 +71,9 @@ export function loadStore() {
         certMap.set(id, Array.isArray(urls) ? urls : [urls as unknown as string]);
     pendingPlanReport = store.pendingPlanReport;
     pendingCertReport = store.pendingCertReport;
+    pendingPlanReminder = store.pendingPlanReminder;
     console.log(`💾 복원 완료: 계획 ${planMap.size}건, 인증 ${certMap.size}건` +
-        (pendingPlanReport || pendingCertReport ? ' (대기 중인 리포트 복원됨)' : ''));
+        (pendingPlanReport || pendingCertReport || pendingPlanReminder ? ' (대기 중인 리포트 복원됨)' : ''));
 }
 
 export function saveStore() {
@@ -71,6 +82,7 @@ export function saveStore() {
         certs: Object.fromEntries(certMap),
         pendingPlanReport,
         pendingCertReport,
+        pendingPlanReminder,
     };
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const tmp = `${STORE_PATH}.tmp`;

@@ -40,32 +40,40 @@ client.once(Events.ClientReady, (c) => {
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
-    if (message.author.bot) return;
+    try {
+        if (message.author.bot) return;
 
-    if (message.channelId === process.env.PLAN_CHANNEL_ID) {
-        const date = parseDate(message.content);
-        const plans = parsePlans(message.content);
-        const links = message.content.match(/https?:\/\/\S+/g) ?? [];
+        if (message.channelId === process.env.PLAN_CHANNEL_ID) {
+            const date = parseDate(message.content);
+            const plans = parsePlans(message.content);
+            const links = message.content.match(/https?:\/\/\S+/g) ?? [];
 
-        if (!date || (plans.length === 0 && links.length === 0)) return;
+            if (!date || (plans.length === 0 && links.length === 0)) return;
 
-        planMap.set(message.author.id, { date, plans, links });
-        saveStore();
-        await message.react('✅');
+            planMap.set(message.author.id, { date, plans, links });
+            saveStore();
+            await message.react('✅');
+        }
+
+        if (message.channelId === process.env.CERT_CHANNEL_ID) {
+            const images = message.attachments.map(a => a.url);
+            // 링크도 인증으로 인식
+            const links = message.content.match(/https?:\/\/\S+/g) ?? [];
+            const all = [...images, ...links];
+
+            if (all.length === 0) return;
+
+            certMap.set(message.author.id, all);
+            saveStore();
+            await message.react('✅');
+        }
+    } catch (err) {
+        console.error('❌ 메시지 처리 실패:', err);
     }
+});
 
-    if (message.channelId === process.env.CERT_CHANNEL_ID) {
-        const images = message.attachments.map(a => a.url);
-        // 링크도 인증으로 인식
-        const links = message.content.match(/https?:\/\/\S+/g) ?? [];
-        const all = [...images, ...links];
-
-        if (all.length === 0) return;
-
-        certMap.set(message.author.id, all);
-        saveStore();
-        await message.react('✅');
-    }
+process.on('unhandledRejection', (reason) => {
+    console.error('❌ 처리되지 않은 프로미스 거부:', reason);
 });
 
 client.login(process.env.DISCORD_TOKEN);

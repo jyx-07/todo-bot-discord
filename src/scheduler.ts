@@ -205,20 +205,23 @@ async function sendPlanReminders() {
 }
 
 export function startScheduler() {
-    // 평일 (KST 08:20 수집, 08:30 전송)
-    cron.schedule('20 23 * * 0,1,2,3,4', () => runTask('리포트 수집', collectReports));
-    cron.schedule('30 23 * * 0,1,2,3,4', () => runTask('계획 리포트 전송', sendPlanReport));
-    cron.schedule('30 23 * * 0,1,2,3,4', () => runTask('인증 리포트 전송', sendCertReport));
+    const KST = { timezone: 'Asia/Seoul' };
 
-    // 주말 (KST 10:00 수집, 10:05 전송)
-    cron.schedule('0 1 * * 5,6', () => runTask('리포트 수집', collectReports));
-    cron.schedule('5 1 * * 5,6', () => runTask('계획 리포트 전송', sendPlanReport));
-    cron.schedule('5 1 * * 5,6', () => runTask('인증 리포트 전송', sendCertReport));
+    // 평일 월~금 (KST 08:20 수집, 08:30 전송)
+    cron.schedule('20 8 * * 1,2,3,4,5', () => runTask('리포트 수집', collectReports), KST);
+    cron.schedule('30 8 * * 1,2,3,4,5', () => runTask('계획 리포트 전송', sendPlanReport), KST);
+    cron.schedule('30 8 * * 1,2,3,4,5', () => runTask('인증 리포트 전송', sendCertReport), KST);
 
-    // 마감 30분 전 미제출자 개인 DM 알림 (평일 07:50, 주말 09:30 KST)
-    cron.schedule('50 22 * * 0,1,2,3,4', () => runTask('마감 30분 전 알림', sendPreDeadlineReminders));
-    cron.schedule('30 0 * * 5,6', () => runTask('마감 30분 전 알림', sendPreDeadlineReminders));
+    // 주말 토요일만 (KST 10:00 수집, 10:05 전송) - 일요일은 휴무
+    cron.schedule('0 10 * * 6', () => runTask('리포트 수집', collectReports), KST);
+    cron.schedule('5 10 * * 6', () => runTask('계획 리포트 전송', sendPlanReport), KST);
+    cron.schedule('5 10 * * 6', () => runTask('인증 리포트 전송', sendCertReport), KST);
+
+    // 마감 30분 전 미제출자 개인 DM 알림 (평일 07:50, 토요일 09:30 KST)
+    cron.schedule('50 7 * * 1,2,3,4,5', () => runTask('마감 30분 전 알림', sendPreDeadlineReminders), KST);
+    cron.schedule('30 9 * * 6', () => runTask('마감 30분 전 알림', sendPreDeadlineReminders), KST);
 
     // 매일 밤 21:00 KST, 그날 플래너 작성자 전원에게 본인 플래너 리마인드 DM
-    cron.schedule('0 12 * * *', () => runTask('플래너 리마인드 전송', sendPlanReminders));
+    cron.schedule('0 21 * * *', () => runTask('플래너 리마인드 전송', sendPlanReminders), KST);
 }
+

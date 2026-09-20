@@ -4,7 +4,7 @@ import * as path from 'path';
 const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
 const STORE_PATH = path.join(DATA_DIR, 'store.json');
 
-export type PlanEntry = { date: string; plans: string[]; links?: string[] };
+export type PlanEntry = { date: string; plans: string[]; links?: string[]; savedAt?: string };
 
 export type PendingCertReport = {
     summary: string;
@@ -66,7 +66,10 @@ export function loadStore() {
     const store = readStore();
     planMap.clear();
     certMap.clear();
-    for (const [id, entry] of Object.entries(store.plans)) planMap.set(id, entry);
+    const now = new Date().toISOString();
+    for (const [id, entry] of Object.entries(store.plans))
+        // savedAt이 없던 구버전 데이터는 지금 저장된 것으로 간주한다 (즉시 만료되지 않도록)
+        planMap.set(id, { ...entry, savedAt: entry.savedAt ?? now });
     for (const [id, urls] of Object.entries(store.certs))
         certMap.set(id, Array.isArray(urls) ? urls : [urls as unknown as string]);
     pendingPlanReport = store.pendingPlanReport;

@@ -253,12 +253,14 @@ async function countMisses(members: Collection<string, GuildMember>) {
     }
     lines.sort((a, b) => b.count - a.count);
 
+    const levelOf = (count: number) => (count >= PENALTY_THRESHOLD ? '🔴' : count === 2 ? '🟠' : '🟡');
     const message = [
-        '🚨 **미제출 누적 현황** (플래너/과제 합산)',
-        '─────────────',
+        '# 🚨 미제출 누적 현황',
+        `-# 플래너 · 과제 합산 | ${today}`,
+        '',
         ...(lines.length > 0
-            ? lines.map(l => `${l.name}-${l.count}${l.count >= PENALTY_THRESHOLD ? ' ⚠️ 벌칙 대상' : ''}`)
-            : ['없음']),
+            ? lines.map(l => `${l.count >= PENALTY_THRESHOLD ? '##' : '###'} ${levelOf(l.count)} **${l.name}** · ${l.count}회`)
+            : ['### 🎉 미제출자가 없습니다']),
     ].join('\n');
 
     setMissLastDate(today);

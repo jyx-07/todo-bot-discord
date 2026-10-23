@@ -63,12 +63,29 @@ client.on(Events.MessageCreate, async (message: Message) => {
     try {
         if (message.author.bot) return;
 
-        if (message.content.trim() === './초기화') {
-            const adminIds = (process.env.ADMIN_IDS ?? '').split(',').map(id => id.trim());
-            if (!adminIds.includes(message.author.id)) return;
+        const content = message.content.trim();
+        const isAdmin = (process.env.ADMIN_IDS ?? '').split(',').map(id => id.trim()).includes(message.author.id);
+
+        if (content === './초기화') {
+            if (!isAdmin) return;
             missCounts.clear();
             saveStore();
             await message.reply('🔄 미제출 누적 횟수를 초기화했습니다.');
+            return;
+        }
+
+        // ./미제출 @유저 2 → 2회로 설정, ./미제출 @유저 +1 / -1 → 증감
+        const adjust = content.match(/^\.\/미제출\s+<@!?(\d+)>\s+([+-]?)(\d+)$/);
+        if (adjust) {
+            if (!isAdmin) return;
+            const [, userId, sign, num] = adjust;
+            const n = parseInt(num);
+            const current = missCounts.get(userId) ?? 0;
+            const next = Math.max(0, sign === '+' ? current + n : sign === '-' ? current - n : n);
+            if (next === 0) missCounts.delete(userId);
+            else missCounts.set(userId, next);
+            saveStore();
+            await message.reply(`✏️ <@${userId}> 미제출 횟수: ${current}회 → ${next}회`);
             return;
         }
 

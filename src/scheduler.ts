@@ -232,7 +232,7 @@ async function collectPlanReport(guild: Guild, members: Collection<string, Guild
 const PENALTY_THRESHOLD = 3;
 const PENALTY_CHANNEL_ID = '1502146899572949153';
 
-// 플래너나 과제 중 하나라도 안 냈으면 그날 1회로 누적. 수집 단계에서 map이 비워지기 전에 호출해야 함
+// 안 낸 항목 수만큼 누적 (플래너 1 + 과제 1, 둘 다 안 내면 2회). 수집 단계에서 map이 비워지기 전에 호출해야 함
 async function countMisses(members: Collection<string, GuildMember>) {
     const { today, todayPadded } = getKSTDate();
     if (missLastDate === today) return; // 같은 날 중복 집계 방지
@@ -242,8 +242,9 @@ async function countMisses(members: Collection<string, GuildMember>) {
         const entry = planMap.get(member.id);
         const hasPlan = !!entry && (entry.date === today || entry.date === todayPadded);
         const hasCert = certMap.has(member.id);
-        if (hasPlan && hasCert) continue;
-        missCounts.set(member.id, (missCounts.get(member.id) ?? 0) + 1);
+        const missed = (hasPlan ? 0 : 1) + (hasCert ? 0 : 1);
+        if (missed === 0) continue;
+        missCounts.set(member.id, (missCounts.get(member.id) ?? 0) + missed);
     }
 
     const lines: { name: string; count: number }[] = [];

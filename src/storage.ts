@@ -17,12 +17,19 @@ export type PendingPlanReport = {
 
 export type PlanReminderSnapshot = Record<string, string>;
 
+export type PendingMissReport = {
+    message: string;
+};
+
 interface StoreShape {
     plans: Record<string, PlanEntry>;
     certs: Record<string, string[]>;
     pendingPlanReport: PendingPlanReport | null;
     pendingCertReport: PendingCertReport | null;
     pendingPlanReminder: PlanReminderSnapshot | null;
+    pendingMissReport: PendingMissReport | null;
+    missCounts: Record<string, number>;
+    missLastDate: string | null;
 }
 
 function readStore(): StoreShape {
@@ -35,9 +42,12 @@ function readStore(): StoreShape {
             pendingPlanReport: parsed.pendingPlanReport ?? null,
             pendingCertReport: parsed.pendingCertReport ?? null,
             pendingPlanReminder: parsed.pendingPlanReminder ?? null,
+            pendingMissReport: parsed.pendingMissReport ?? null,
+            missCounts: parsed.missCounts ?? {},
+            missLastDate: parsed.missLastDate ?? null,
         };
     } catch {
-        return { plans: {}, certs: {}, pendingPlanReport: null, pendingCertReport: null, pendingPlanReminder: null };
+        return { plans: {}, certs: {}, pendingPlanReport: null, pendingCertReport: null, pendingPlanReminder: null, pendingMissReport: null, missCounts: {}, missLastDate: null };
     }
 }
 
@@ -46,6 +56,19 @@ export const certMap = new Map<string, string[]>();
 export let pendingPlanReport: PendingPlanReport | null = null;
 export let pendingCertReport: PendingCertReport | null = null;
 export let pendingPlanReminder: PlanReminderSnapshot | null = null;
+export let pendingMissReport: PendingMissReport | null = null;
+export const missCounts = new Map<string, number>();
+export let missLastDate: string | null = null;
+
+export function setPendingMissReport(report: PendingMissReport | null) {
+    pendingMissReport = report;
+    saveStore();
+}
+
+export function setMissLastDate(date: string | null) {
+    missLastDate = date;
+    saveStore();
+}
 
 export function setPendingPlanReport(report: PendingPlanReport | null) {
     pendingPlanReport = report;
@@ -75,6 +98,10 @@ export function loadStore() {
     pendingPlanReport = store.pendingPlanReport;
     pendingCertReport = store.pendingCertReport;
     pendingPlanReminder = store.pendingPlanReminder;
+    pendingMissReport = store.pendingMissReport;
+    missCounts.clear();
+    for (const [id, n] of Object.entries(store.missCounts)) missCounts.set(id, n);
+    missLastDate = store.missLastDate;
     console.log(`💾 복원 완료: 계획 ${planMap.size}건, 인증 ${certMap.size}건` +
         (pendingPlanReport || pendingCertReport || pendingPlanReminder ? ' (대기 중인 리포트 복원됨)' : ''));
 }
@@ -86,6 +113,9 @@ export function saveStore() {
         pendingPlanReport,
         pendingCertReport,
         pendingPlanReminder,
+        pendingMissReport,
+        missCounts: Object.fromEntries(missCounts),
+        missLastDate,
     };
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const tmp = `${STORE_PATH}.tmp`;

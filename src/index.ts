@@ -2,7 +2,7 @@ import { Events, Message } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { client } from './client';
 import { startScheduler } from './scheduler';
-import { planMap, certMap, loadStore, saveStore } from './storage';
+import { planMap, certMap, missCounts, loadStore, saveStore } from './storage';
 dotenv.config();
 
 const REQUIRED_ENV = ['DISCORD_TOKEN', 'GUILD_ID', 'PLAN_CHANNEL_ID', 'CERT_CHANNEL_ID', 'ADMIN_IDS'] as const;
@@ -62,6 +62,15 @@ client.once(Events.ClientReady, (c) => {
 client.on(Events.MessageCreate, async (message: Message) => {
     try {
         if (message.author.bot) return;
+
+        if (message.content.trim() === './초기화') {
+            const adminIds = (process.env.ADMIN_IDS ?? '').split(',').map(id => id.trim());
+            if (!adminIds.includes(message.author.id)) return;
+            missCounts.clear();
+            saveStore();
+            await message.reply('🔄 미제출 누적 횟수를 초기화했습니다.');
+            return;
+        }
 
         if (message.channelId === process.env.PLAN_CHANNEL_ID) {
             const date = parseDate(message.content);

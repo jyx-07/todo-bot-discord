@@ -11,6 +11,11 @@ import {
     setPendingPlanReport,
     setPendingCertReport,
     setPendingPlanReminder,
+    pendingMissReport as storedPendingMissReport,
+    setPendingMissReport,
+    missCounts,
+    missLastDate,
+    setMissLastDate,
 } from './storage';
 
 const DISCORD_MAX_LENGTH = 2000;
@@ -162,7 +167,7 @@ async function collectCertReport(guild: Guild, members: Collection<string, Guild
 
 async function sendCertReport() {
     if (!storedPendingCertReport) {
-        await sendToAdmins('⚠️ 인증 리포트를 보내지 못했습니다: 수집된 리포트가 없습니다 (8:20 수집 단계 확인 필요)');
+        await sendToAdmins('⚠️ 인증 리포트를 보내지 못했습니다: 수집된 리포트가 없습니다 (수집 단계 확인 필요)');
         return;
     }
     const { summary, perUser } = storedPendingCertReport;
@@ -224,9 +229,55 @@ async function collectPlanReport(guild: Guild, members: Collection<string, Guild
     setPendingPlanReminder(reminderSnapshot);
 }
 
+const PENALTY_THRESHOLD = 3;
+const PENALTY_CHANNEL_ID = '1502146899572949153';
+
+// 플래너나 과제 중 하나라도 안 냈으면 그날 1회로 누적. 수집 단계에서 map이 비워지기 전에 호출해야 함
+async function countMisses(members: Collection<string, GuildMember>) {
+    const { today, todayPadded } = getKSTDate();
+    if (missLastDate === today) return; // 같은 날 중복 집계 방지
+
+    for (const member of members.values()) {
+        if (member.user.bot) continue;
+        const entry = planMap.get(member.id);
+        const hasPlan = !!entry && (entry.date === today || entry.date === todayPadded);
+        const hasCert = certMap.has(member.id);
+        if (hasPlan && hasCert) continue;
+        missCounts.set(member.id, (missCounts.get(member.id) ?? 0) + 1);
+    }
+
+    const lines: { name: string; count: number }[] = [];
+    for (const [id, count] of missCounts.entries()) {
+        const member = members.get(id);
+        if (member && count > 0) lines.push({ name: member.displayName, count });
+    }
+    lines.sort((a, b) => b.count - a.count);
+
+    const message = [
+        '🚨 **미제출 누적 현황** (플래너/과제 합산)',
+        '─────────────',
+        ...(lines.length > 0
+            ? lines.map(l => `${l.name}-${l.count}${l.count >= PENALTY_THRESHOLD ? ' ⚠️ 벌칙 대상' : ''}`)
+            : ['없음']),
+    ].join('\n');
+
+    setMissLastDate(today);
+    setPendingMissReport({ message });
+}
+
+async function sendMissReport() {
+    if (!storedPendingMissReport) return;
+    const channel = await client.channels.fetch(PENALTY_CHANNEL_ID);
+    if (!channel || !channel.isSendable()) throw new Error('미제출 현황 채널에 메시지를 보낼 수 없습니다');
+    await channel.send(storedPendingMissReport.message);
+    setPendingMissReport(null);
+}
+
 async function collectReports() {
     const guild = await client.guilds.fetch(process.env.GUILD_ID!);
     const members = await guild.members.fetch();
+
+    await runTask('미제출 카운트', () => countMisses(members));
 
     await runTask('계획 리포트 수집', () => collectPlanReport(guild, members));
     await runTask('인증 리포트 수집', () => collectCertReport(guild, members));
@@ -259,17 +310,18 @@ async function sendPreDeadlineReminders() {
 
 async function sendPlanReport() {
     if (!storedPendingPlanReport) {
-        await sendToAdmins('⚠️ 계획 리포트를 보내지 못했습니다: 수집된 리포트가 없습니다 (8:20 수집 단계 확인 필요)');
+        await sendToAdmins('⚠️ 계획 리포트를 보내지 못했습니다: 수집된 리포트가 없습니다 (수집 단계 확인 필요)');
         return;
     }
     await sendToAdmins(storedPendingPlanReport.summary);
     setPendingPlanReport(null);
 }
 
-/** 계획 → 인증 순서가 섞이지 않도록 한 태스크에서 순차 전송한다 */
+/** 계획 → 인증 → 미제출 현황 순서가 섞이지 않도록 한 태스크에서 순차 전송한다 */
 async function sendReports() {
     await runTask('계획 리포트 전송', sendPlanReport);
     await runTask('인증 리포트 전송', sendCertReport);
+    await runTask('미제출 현황 전송', sendMissReport);
 }
 
 async function sendPlanReminders() {
@@ -290,15 +342,15 @@ async function sendPlanReminders() {
 export function startScheduler() {
     const KST = { timezone: 'Asia/Seoul' };
 
-    // 평일 월~금 (KST 08:20 수집, 08:30 전송)
-    cron.schedule('20 8 * * 1,2,3,4,5', () => runTask('리포트 수집', collectReports), KST);
+    // 평일 월~금 (KST 08:29 수집, 08:30 전송)
+    cron.schedule('29 8 * * 1,2,3,4,5', () => runTask('리포트 수집', collectReports), KST);
     cron.schedule('30 8 * * 1,2,3,4,5', () => sendReports(), KST);
 
-    // 주말 토요일만 (KST 10:00 수집, 10:05 전송) - 일요일은 휴무
-    cron.schedule('0 10 * * 6', () => runTask('리포트 수집', collectReports), KST);
+    // 주말 토요일만 (KST 09:59 수집, 10:05 전송) - 일요일은 휴무
+    cron.schedule('59 9 * * 6', () => runTask('리포트 수집', collectReports), KST);
     cron.schedule('5 10 * * 6', () => sendReports(), KST);
 
-    // 마감 30분 전 미제출자 개인 DM 알림 (평일 07:50, 토요일 09:30 KST)
+    // 마감 30분 전 미제출자 개인 DM 알림 (평일 07:50, 토요일 09:30 한국 시간으로 고정 )
     cron.schedule('50 7 * * 1,2,3,4,5', () => runTask('마감 30분 전 알림', sendPreDeadlineReminders), KST);
     cron.schedule('30 9 * * 6', () => runTask('마감 30분 전 알림', sendPreDeadlineReminders), KST);
 

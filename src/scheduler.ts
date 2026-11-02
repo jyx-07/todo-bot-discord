@@ -231,6 +231,7 @@ async function collectPlanReport(guild: Guild, members: Collection<string, Guild
 
 const PENALTY_THRESHOLD = 3;
 const PENALTY_CHANNEL_ID = '1502146899572949153';
+const POST_MISS_REPORT_TO_CHANNEL = false; // true로 바꾸면 채널에 현황을 올림 (카운트는 항상 집계)
 
 // 안 낸 항목 수만큼 누적 (플래너 1 + 과제 1, 둘 다 안 내면 2회). 수집 단계에서 map이 비워지기 전에 호출해야 함
 async function countMisses(members: Collection<string, GuildMember>) {
@@ -270,6 +271,10 @@ async function countMisses(members: Collection<string, GuildMember>) {
 
 async function sendMissReport() {
     if (!storedPendingMissReport) return;
+    if (!POST_MISS_REPORT_TO_CHANNEL) {
+        setPendingMissReport(null);
+        return;
+    }
     const channel = await client.channels.fetch(PENALTY_CHANNEL_ID);
     if (!channel || !channel.isSendable()) throw new Error('미제출 현황 채널에 메시지를 보낼 수 없습니다');
     await channel.send(storedPendingMissReport.message);

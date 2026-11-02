@@ -2,7 +2,7 @@ import { Events, Message } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { client } from './client';
 import { startScheduler } from './scheduler';
-import { planMap, certMap, missCounts, loadStore, saveStore } from './storage';
+import { planMap, certMap, missCounts, loadStore, saveStore, setMissLastDate, setPendingMissReport } from './storage';
 dotenv.config();
 
 const REQUIRED_ENV = ['DISCORD_TOKEN', 'GUILD_ID', 'PLAN_CHANNEL_ID', 'CERT_CHANNEL_ID', 'ADMIN_IDS'] as const;
@@ -69,7 +69,8 @@ client.on(Events.MessageCreate, async (message: Message) => {
         if (content === './초기화') {
             if (!isAdmin) return;
             missCounts.clear();
-            saveStore();
+            setMissLastDate(null);
+            setPendingMissReport(null);
             await message.reply('🔄 미제출 누적 횟수를 초기화했습니다.');
             return;
         }
